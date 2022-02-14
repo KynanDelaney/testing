@@ -32,8 +32,8 @@ options("digits.secs"=6)
 
 # Defining connection to database -----------------------------------------
 
-name <- "greenmill"
-ip <- "172.20.39.122"
+name <- "blackmill"
+ip <- "172.20.42.199"
 
 # Details for connecting to database. "Host" may change if ip-address changes.
 con <- dbConnect(RPostgres::Postgres(), dbname = name, host=ip, port='5432', user="pi", password = "raspberry")
@@ -51,14 +51,13 @@ mill_colour <- dbListTables(con)
 # Accessing, Extracting and Exporting data --------------------------------
 
 # Choose a destination folder for all the data.
-setwd(file.choose())
 
 # Dplyr approach to using database data
 working <- tbl(con, mill_colour)
 
 session_list <- working %>% distinct(session) %>% pull()
 
-# A loop for writing CSV for each unique session ID. Replaced by following loop.
+# A loop for writing CSV for each unique session ID. 
 for (i in session_list){
   working %>%
     filter(session == i) %>%
