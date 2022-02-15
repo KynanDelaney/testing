@@ -44,17 +44,17 @@ mill_colour <- dbListTables(con)
 # Print out a sample of the table. Basically "head(mydata)". Takes ages to run.
 #dbReadTable(con, mill_colour)
 
-# Inserting simulated data into database
-#dbWriteTable(con, "green", value = test_insert, overwrite = T)
-
 
 # Accessing, Extracting and Exporting data --------------------------------
 
-# Choose a destination folder for all the data.
+#-------------------------------------------------------#
+# DOUBLE-CHECK the destination folder for all the data. #
+#-------------------------------------------------------#
 
-# Dplyr approach to using database data
+# Dplyr approach to using database data.
 working <- tbl(con, mill_colour)
 
+# Create a list of unique session IDs to later filter and export.
 session_list <- working %>% distinct(session) %>% pull()
 
 # A loop for writing CSV for each unique session ID. 
@@ -63,28 +63,7 @@ for (i in session_list){
     filter(session == i) %>%
     write.csv(paste0(mill_colour,"_session_", i, ".csv"))}
 
-
-
-
-
-# Alternative extraction method -------------------------------------------
-
-# A loop for storing each unique session ID as data.frame.
-for (i in session_list){
-  data_name <- paste0(mill_colour,"_session_", i)
-  assign(data_name, data.frame(working %>% filter(session == i)))}
-
-
-# Disconnecting from database when finished
+# Disconnecting from database when finished.
 dbDisconnect(con) 
-
-# Loading in extracted CSVs -----------------------------------------------
-
-# Not the best way to do this. I would rather work with tables from above loop.
-dataframe_names <- list()
-
-for (i in session_list){
-  t <- paste0(mill_colour,"_session_", i)
-  dataframe_names <- c(dataframe_names,t)}
 
 
