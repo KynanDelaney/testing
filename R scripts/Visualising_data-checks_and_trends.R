@@ -253,4 +253,6 @@ ggplot(quali, aes(x = flight.length, y = flight.count, col = Treatment)) +
   facet_wrap(~Assay)
 
 
-
+ggplot(data = active0,aes(x = Assay, y = total_distance, group = ID)) +
+  geom_point() +
+  geom_line() 
