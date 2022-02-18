@@ -10,9 +10,9 @@ library(lubridate)
 # for analysis
 library(brms)
 library(cmdstanr) # backend for brms
+library(broom)
 library(loo)      # model selection 
-library(glmmTMB)
-library(gamm4)
+library(ggeffects)
 
 library(survival)
 library(survminer)
@@ -39,7 +39,7 @@ flight <- flight %>%
   mutate(sel_disappearance = case_when(
     Lifespan < 60 ~ "1",
     Lifespan < 90 ~ "2",
-    Lifespan > 90 ~ "3")) %>%
+    Lifespan >= 90 ~ "3")) %>%
   mutate(sel_disappearance = factor(sel_disappearance)) %>%
   mutate(rotations = (total_distance/0.88))
 
@@ -56,89 +56,118 @@ active0[is.na(active0)] <- 0
 active <- active0 %>%
   filter(total_distance > 0)
 
-
-
-# glmmTMB Models ------------------------------------------------------------
-
 # checking the proportion of zeros in measure of distance
 100*sum(active0$total_distance == 0)/nrow(active0)
 
+# brms Models ------------------------------------------------------------
 
-hurdle_distance_0 <- glmmTMB(total_distance ~ sel_disappearance + 
-                               (1|ID) + (1|Family) + (1|Block) + (1|Chamber) + offset(log(trial_length)),
-                         data=active0,
-                         ziformula=~1,
-                         family = ziGamma(link = "log"))
+distance_brm0<- brm(bf(
+  total_distance ~ sel_disappearance + offset(log(trial_length)) +
+    (1|ID) + (1|Family) + (1|Block) + (1|Chamber),
+  hu ~ sel_disappearance + offset(log(trial_length)) +
+    (1|ID) + (1|Family) + (1|Block) + (1|Chamber)),
+  data = active0,
+  family = hurdle_gamma(),
+  warmup = 1000, 
+  iter = 7500, 
+  thin = 4,
+  control = list(adapt_delta = 0.95),
+  chains = 6,
+  cores = 6,
+  seed = 42,
+  save_all_pars = TRUE)
 
-summary(hurdle_distance_0)
 
-hurdle_distance_1a <- glmmTMB(total_distance ~ Treatment + sel_disappearance + 
-                                (1|ID) + (1|Family) + (1|Block) + (1|Chamber) + offset(log(trial_length)),
-                             data=active0,
-                             ziformula=~1,
-                             family = ziGamma(link = "log"))
+distance_brm1a<- brm(bf(
+  total_distance ~ Assay + sel_disappearance + offset(log(trial_length)) +
+    (1|ID) + (1|Family) + (1|Block) + (1|Chamber),
+  hu ~ Assay + sel_disappearance + offset(log(trial_length)) +
+    (1|ID) + (1|Family) + (1|Block) + (1|Chamber)),
+  data = active0,
+  family = hurdle_gamma(),
+  warmup = 1000, 
+  iter = 7500, 
+  thin = 4,
+  control = list(adapt_delta = 0.95),
+  chains = 6,
+  cores = 6,
+  seed = 42,
+  save_all_pars = TRUE)
 
-summary(hurdle_distance_1a)
+
+distance_brm1b<- brm(bf(
+  total_distance ~ Treatment + sel_disappearance + offset(log(trial_length)) +
+    (1|ID) + (1|Family) + (1|Block) + (1|Chamber),
+  hu ~ Assay + sel_disappearance + offset(log(trial_length)) +
+    (1|ID) + (1|Family) + (1|Block) + (1|Chamber)),
+  data = active0,
+  family = hurdle_gamma(),
+  warmup = 1000, 
+  iter = 7500, 
+  thin = 4,
+  control = list(adapt_delta = 0.95),
+  chains = 6,
+  cores = 6,
+  seed = 42,
+  save_all_pars = TRUE)
 
 
-hurdle_distance_1b <- glmmTMB(total_distance ~ Assay + sel_disappearance + 
-                                (1|ID) + (1|Family) + (1|Block) + (1|Chamber) + offset(log(trial_length)),
-                              data=active0,
-                              ziformula=~1,
-                              family = ziGamma(link = "log"))
+distance_brm2<- brm(bf(
+  total_distance ~ Assay + Treatment + sel_disappearance + offset(log(trial_length)) +
+    (1|ID) + (1|Family) + (1|Block) + (1|Chamber),
+  hu ~ Assay + Treatment + sel_disappearance + offset(log(trial_length)) +
+    (1|ID) + (1|Family) + (1|Block) + (1|Chamber)),
+  data = active0,
+  family = hurdle_gamma(),
+  warmup = 1000, 
+  iter = 7500, 
+  thin = 4,
+  control = list(adapt_delta = 0.95),
+  chains = 6,
+  cores = 6,
+  seed = 42,
+  save_all_pars = TRUE)
 
-summary(hurdle_distance_1b)
 
-hurdle_distance_2 <- glmmTMB(total_distance ~ Assay + Treatment + sel_disappearance + 
-                               (1|ID) + (1|Family) + (1|Block) + (1|Chamber) + offset(log(trial_length)),
-                             data=active0,
-                             ziformula=~1,
-                             family = ziGamma(link = "log"))
+distance_brm3<- brm(bf(
+  total_distance ~ Assay*Treatment + sel_disappearance + offset(log(trial_length)) +
+    (1|ID) + (1|Family) + (1|Block) + (1|Chamber),
+  hu ~ Assay*Treatment + sel_disappearance + offset(log(trial_length)) +
+    (1|ID) + (1|Family) + (1|Block) + (1|Chamber)),
+  data = active0,
+  family = hurdle_gamma(),
+  warmup = 1000, 
+  iter = 7500, 
+  thin = 4,
+  control = list(adapt_delta = 0.95),
+  chains = 6,
+  cores = 6,
+  seed = 42,
+  save_all_pars = TRUE)
 
-summary(hurdle_distance_2)
 
-hurdle_distance_3_0 <- glmmTMB(total_distance ~ Assay*Treatment + sel_disappearance + 
-                               (1|ID) + (1|Family) + (1|Block) + (1|Chamber) + offset(log(trial_length)),
-                             data=active0,
-                             ziformula=~1,
-                             family = ziGamma(link = "log"))
+d_brm0_loo <- loo(distance_brm0, cores = 6)
+d_brm1a_loo <- loo(distance_brm1a, cores = 6)
+d_brm1b_loo <- loo(distance_brm1b, cores = 6)
+d_brm2_loo <- loo(distance_brm2, cores = 6)
+d_brm3_loo <- loo(distance_brm3, cores = 6)
 
-hurdle_distance_3_1 <- glmmTMB(total_distance ~ Assay*Treatment + sel_disappearance + 
-                                 (1|ID) + (1|Family) + (1|Block) + (1|Chamber) + offset(log(trial_length)),
-                               data=active0,
-                               ziformula=~Assay + Treatment + sel_disappearance + 
-                                 (1|ID) + (1|Block) + (1|Chamber),
-                               family = ziGamma(link = "log"))
+plot(distance_brm0)
+pp_check(distance_brm3, ndraws = 100) + ggplot2::xlim(0,10000)
 
-summary(hurdle_distance_3)
+plot(d_brm3_loo)
 
-anova(hurdle_distance_3_0, hurdle_distance_3_1)
-
-distance_brm0<- brm(bf(total_distance ~ sel_disappearance + 
-                         (1|ID) + (1|Family) + (1|Block) + (1|Chamber) + offset(log(trial_length)),
-                       hu ~ sel_disappearance + 
-                         (1|ID) + (1|Family) + (1|Block) + (1|Chamber) + offset(log(trial_length))),
-                    data = active0,
-                    family = hurdle_gamma(),
-                    warmup = 500, 
-                    iter   = 2500, 
-                    thin = 2,
-                    control = list(adapt_delta = 0.95, max_treedepth = 15),
-                    chains = 4, 
-                    cores  = 4,
-                    backend = "cmdstanr", 
-                    threads = threading(2),
-                    seed = 95)
-
-pp_check(distance_brm0, ndraws = 100) + ggplot2::xlim(0,10000)
+n <- loo_compare(d_brm0_loo,d_brm1a_loo,d_brm1b_loo,d_brm2_loo,d_brm3_loo)
+print(n,moment_match = T, simplify = F)
 
 # Survival Models ---------------------------------------------------------
 
 
-# read "Combined_Flight_final.csv" from "Final_Values_Folder. Be careful about
-# Working directories and where new files are being written.
+# Be careful about Working directories and where new files are being written.
 lifedata<- read.csv(file.choose(), stringsAsFactors = FALSE, header = T)
 
+# Create more informative ID variable. Remove junk/pilot blocks. Create ordered 
+# factor of Treatment for models. Remove unnecessary columns
 lifedata <- lifedata %>%
   mutate(ID = paste0(Family,ID)) %>%
   filter(Block != "A" & Block != "E") %>%
@@ -148,28 +177,80 @@ lifedata <- lifedata %>%
   mutate(Block = factor(Block)) %>%
   select(Family,ID,Sex,oTreatment,Size,Censored,Lifespan,Activity,Block)
 
-
+# Convert individual measuers to long-form "state per day/age" format. MUST use 
+# Lifespan as response variable in models. I made the mistake with timegroup before.
 longlife <- survSplit(Surv(Lifespan,Censored) ~., 
                       lifedata,
                       cut=c(unique(lifedata$Lifespan)), 
                       episode ="timegroup")
 
+# look only at individuals who flew.
 longlife_flyers <- longlife[longlife$Activity == "Flight",]
 
-system.time(gam.1 <- gamm4(Censored ~ oTreatment + s(Lifespan) + s(Lifespan, by = oTreatment), random = ~(1|ID) + (1|Family) + (1|Block),
-                                data = longlife_flyers, family = binomial(link="cloglog")))
+system.time(surv0 <- brm(Censored ~ s(Lifespan, k = 20) + (1|ID) + (1|Family) + (1|Block),
+                             family = bernoulli(link = "cloglog"), 
+                             data = longlife_flyers, 
+                             warmup = 1000, 
+                             iter = 7500, 
+                             thin = 4,
+                             control = list(adapt_delta = 0.95),
+                             chains = 4,
+                             cores = 4,
+                             seed = 95, 
+                             backend = "cmdstanr", 
+                             threads = threading(2))
+)
+
+system.time(surv1 <- brm(Censored ~ oTreatment + s(Lifespan, k = 20) + (1|ID) + (1|Family) + (1|Block),
+                             family = bernoulli(link = "cloglog"), 
+                             data = longlife_flyers, 
+                             warmup = 1000, 
+                             iter = 7500, 
+                             thin = 4,
+                             control = list(adapt_delta = 0.95),
+                             chains = 4,
+                             cores = 4,
+                             seed = 95, 
+                             backend = "cmdstanr", 
+                             threads = threading(2))
+)
 
 
-longlife_flyers <- gammit::predict_gamm(gam.1$gam, newdata = longlife_flyers, re.form = NULL, se = T, keep_prediction_data = T)
-summary(gam.1$gam)
+system.time(surv2 <- brm(Censored ~ oTreatment + s(Lifespan, k = 20) + s(Lifespan, by = oTreatment) + (1|ID) + (1|Family) + (1|Block),
+  family = bernoulli(link = "cloglog"), 
+  data = longlife_flyers, 
+  warmup = 1000, 
+  iter = 7500, 
+  thin = 4,
+  control = list(adapt_delta = 0.95),
+  chains = 4,
+  cores = 4,
+  seed = 95, 
+  backend = "cmdstanr", 
+  threads = threading(2))
+)
 
-mort_1_fit <- ggplot(longlife_flyers, aes(x = Lifespan, y = prediction, col = oTreatment, group = oTreatment)) +
-  geom_smooth(method = "gam", formula = y ~ s(x, bs = "tp")) +
-  geom_ribbon(data = longlife_flyers, aes(ymin = prediction - 1.96*se, ymax = prediction + 1.96*se), alpha = 0.3, color = NA) +
-  theme_classic() +
-  labs(x = "Age (days)", y = "Log(mortality)") +
-  xlim(0, 180)
+saveRDS(surv0, file = "surv0.rds")
+saveRDS(surv1, file = "surv0.rds")
+saveRDS(surv2, file = "surv0.rds")
 
+plot(conditional_smooths(surv0))
+plot(msms)
+pp_check(test_surv)
+brms::pp_check(test_surv, type = "bars", ndraws = 100)
+
+y <- ggemmeans(
+  test_surv,
+  terms = c("Lifespan", "oTreatment"),
+  ci.lvl = 0.95,
+  type = "fe",
+  back.transform = FALSE)
+plot(y)
+
+ggplot(y, aes(x = x, y = log(predicted), col = group)) + 
+  geom_smooth(method = "loess", se = F) +
+  geom_ribbon(data = y, aes(ymin = log(conf.low), ymax = log(conf.high), alpha = 0.01, fill = group)) +
+  facet_wrap(~group)
 
 
 
