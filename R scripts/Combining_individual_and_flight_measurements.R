@@ -10,9 +10,10 @@
 rm(list = ls())
 
 # for data cleaning and plotting
-library(tidyverse)
 library(lubridate)
-
+library(plyr)
+library(dplyr)
+library(purrr)
 
 # load in data ------------------------------------------------------------
 
@@ -27,6 +28,30 @@ beetles <- beetles %>%
 
 beetles$ID <- factor(beetles$ID)
 
+# Families in which treatment was applied late. Larvae >175mg at split.
+beetles <- beetles %>%
+  filter(Family != "xU") %>%
+  filter(Family != "xAP") %>%
+  filter(Family != "xAQ") %>%
+  filter(Family != "xX") %>%
+  filter(Family != "xAS") %>%
+  filter(Family != "xAR") %>%
+  filter(Family != "xW") %>%
+  filter(Family != "xAT") %>%
+  filter(Family != "xB") %>%
+  filter(Family != "xAM") %>%
+  filter(Family != "xAE") %>%
+  filter(Family != "xY") %>%
+  filter(Family != "xAN") %>%
+  filter(Family != "xAB") %>%
+  filter(Family != "xAC") %>%
+  filter(Family != "xA") %>%
+  filter(Family != "xC") %>%
+  filter(Family != "xV") %>%
+  filter(Family != "xR") %>%
+  filter(Family != "xAL")
+  
+  
 # Converts a wide format of three trials to repeated-measures long format.
 beetles <- reshape(beetles, 
                    varying=list(Trial.Date= c("X1st.Trial","X2nd.Trial", "X3rd.Trial"), 
@@ -64,8 +89,8 @@ flight<- flight %>%
 
 # Removing data that either came from the pilot, or failed week.
 flight <- flight %>%
-  filter(Block != "A" & Block != "E")
+  filter(Block != "A")
 flight$Sex <- ifelse(flight$Sex == "", "M", flight$Sex)
 
 # outputting all this cleaned/paired data to a useable csv.
-write.csv(flight, file = "Combined_Flight_final.csv")
+write.csv(flight, file = "Data/Combined_Flight_final.csv", row.names = F)

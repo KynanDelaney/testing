@@ -10,7 +10,7 @@
 rm(list = ls())
 
 # for data cleaning and plotting
-library(tidyverse)
+library(dplyr)
 library(lubridate)
 library(ggplot2)
 library(patchwork)
@@ -35,7 +35,8 @@ flight <- flight %>%
   mutate(Chamber = factor(Chamber)) %>%
   mutate(Session = factor(Session)) %>%
   mutate(Size = as.numeric(Size)) %>%
-  mutate(total_peak_speed = as.numeric(total_peak_speed))
+  mutate(total_peak_speed = as.numeric(total_peak_speed)) %>%
+  select(-X,-Eclosion,-Trial.Date)
 
 # Creating a subset to work with only beetles that flew. Removing missing values.
 # Active0 includes all beetles, and makes a new factor for flight/no flight. Renaming
@@ -188,7 +189,7 @@ active0 <- active0 %>%
 
 fly_prop <- ggplot(active0, aes(x = Assay, y = fly.binary, col = Treatment)) +
   stat_summary(fun=mean, geom="point", position = position_dodge(0.6)) +
-  stat_summary(fun.data=mean_cl_boot, geom="errorbar", width=0.2, position = position_dodge(0.6)) +
+  stat_summary(fun.data=mean_se, geom="errorbar", width=0.2, position = position_dodge(0.6)) +
   ylim(0,1) + ylab("Proportion of beetles flying") + labs(title = "Proportion of beetles flying") +
   theme_classic() + theme(legend.title = element_blank())
 
@@ -229,7 +230,7 @@ ggplot(quali, aes(x = Assay, y = flight.count, col = Treatment)) +
   stat_summary(fun.data = n_fun_y_50, geom = "text",
                aes(group=interaction(Treatment, flight.length)),
                hjust = 0.5, position = position_dodge(0.6)) +
-  facet_wrap(~flight.length)
+  facet_wrap(~flight.length) + theme_classic()
 
 # reworking data-frame to look at qualitative changes in flight.
 
@@ -256,3 +257,5 @@ ggplot(quali, aes(x = flight.length, y = flight.count, col = Treatment)) +
 ggplot(data = active0,aes(x = Assay, y = total_distance, group = ID)) +
   geom_point() +
   geom_line() 
+
+
