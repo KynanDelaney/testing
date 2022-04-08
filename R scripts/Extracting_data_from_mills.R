@@ -26,6 +26,8 @@ library(purrr)
 library(lubridate)
 library(data.table)
 library(chron)
+library(Matrix)
+library(dbplyr)
 
 options("digits.secs"=6)
 
@@ -57,8 +59,14 @@ working <- tbl(con, mill_colour)
 # Create a list of unique session IDs to later filter and export.
 session_list <- working %>% distinct(session) %>% pull()
 
+
 # A loop for writing CSV for each unique session ID. 
 for (i in session_list){
+  working %>%
+    filter(session == i) %>%
+    write.csv(paste0(mill_colour,"_session_", i, ".csv"))}
+
+for (i in c(48:92)){
   working %>%
     filter(session == i) %>%
     write.csv(paste0(mill_colour,"_session_", i, ".csv"))}
